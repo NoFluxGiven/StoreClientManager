@@ -14,9 +14,13 @@
             </div>
             <v-toolbar flat>
                 <v-toolbar-title>Store Client Manager</v-toolbar-title>
-                <v-icon medium class="mr-2" @click="createStore()" v-if="storeUUID===''">
-                    mdi-plus
-                </v-icon>
+                <v-divider class="mx-4" inset vertical></v-divider>
+                <v-btn small class="mr-2" @click="createStore()" v-if="storeUUID===''">
+                    <v-icon>
+                        mdi-plus
+                    </v-icon>
+                    Create New Store
+                </v-btn>
                 <v-icon medium class="mr-2" @click="loadStore(storeUUID)" v-if="storeUUID!==''">
                     mdi-refresh
                 </v-icon>
@@ -26,21 +30,28 @@
                 <v-divider class="mx-4" inset vertical></v-divider>
                 <v-dialog v-model="dialogStore" max-width="500px">
                     <template v-slot:activator="{ on, attrs }">
-                        <v-btn :color="storeUUID==='' ? 'warning' : 'success'" :loading="loading" dark class="mb-2"
+                        <v-btn small :color="storeUUID==='' ? 'warning' : 'success'" :loading="loading" class="mr-1"
                             v-bind="attrs" v-on="on">
                             {{ storeTitle }}
                         </v-btn>
                     </template>
                     <v-card>
                         <v-card-title>
-                            <span class="text-h5">Set Store UUID</span>
+                            <span class="text-h5">Load Store from UUID</span>
                         </v-card-title>
 
                         <v-card-text>
                             <v-container>
                                 <v-row>
-                                    <v-col cols="12" sm="9" md="12">
-                                        <v-text-field v-model="editedStoreUUID" label="Store UUID"></v-text-field>
+                                    <v-col cols="12" sm="9" md="11">
+                                        <v-text-field v-model="editedStoreUUID" label="Store UUID"
+                                            hint="A UUIDv4 compliant Store UUID. Click the Generate button to generate one instead.">
+                                        </v-text-field>
+                                    </v-col>
+                                    <v-col>
+                                        <v-btn medium class="mr-2" @click="generateUUID()">
+                                            Generate
+                                        </v-btn>
                                     </v-col>
                                 </v-row>
                             </v-container>
@@ -62,7 +73,7 @@
                 <v-spacer></v-spacer>
                 <v-dialog v-model="dialog" max-width="500px">
                     <template v-slot:activator="{ on, attrs }">
-                        <v-btn color="primary" dark class="mb-2" v-bind="attrs" v-on="on">
+                        <v-btn color="primary" class="mb-2" v-bind="attrs" v-on="on" :disabled="storeUUID===''">
                             New Item
                         </v-btn>
                     </template>
@@ -74,11 +85,14 @@
                         <v-card-text>
                             <v-container>
                                 <v-row>
-                                    <v-col cols="12" sm="9" md="4">
-                                        <v-text-field v-model="editedItem.key" label="Key"></v-text-field>
+                                    <v-col cols="12" sm="9" md="8">
+                                        <v-text-field v-model="editedItem.key" label="Key"
+                                            hint="The key to assign the value to.">
+                                        </v-text-field>
                                     </v-col>
-                                    <v-col cols="12" sm="9" md="4">
-                                        <v-text-field v-model="editedItem.val" label="Value"></v-text-field>
+                                    <v-col cols="12" sm="9" md="8">
+                                        <v-text-field v-model="editedItem.val" label="Value"
+                                            hint="The value itself, which will be stored as a string."></v-text-field>
                                     </v-col>
                                 </v-row>
                             </v-container>
@@ -108,6 +122,9 @@
                 </v-dialog>
             </v-toolbar>
         </template>
+        <template v-slot:[`item.val`]="{ item }">
+            {{item.val}}
+        </template>
         <template v-slot:[`item.actions`]="{ item }">
             <v-icon small class="mr-2" @click="editItem(item)">
                 mdi-pencil
@@ -125,6 +142,7 @@ import axios from 'axios'
 
 export default {
     data: () => ({
+        expanded: [],
         dialog: false,
         dialogDelete: false,
         dialogStore: false,
@@ -165,7 +183,7 @@ export default {
             return this.editedIndex === -1 ? 'New Item' : 'Edit Item'
         },
         storeTitle() {
-            return this.storeUUID === "" ? "Set Store" : this.storeUUID
+            return this.storeUUID === "" ? "Load Store" : `Store: ${this.storeUUID}`
         }
     },
 
@@ -259,7 +277,7 @@ export default {
         async loadStore(uuid) {
             if (!uuid) {
                 this.snackbar = true;
-                this.snackbar_msg = "No store loaded.";
+                this.snackbar_msg = "Provide a UUID to load a Store.";
                 return false;
             }
             console.log(`Load store ${uuid}...`)
@@ -272,7 +290,7 @@ export default {
             catch (err) {
                 console.log(`Load failed\n${err.response.data.message}...`)
                 this.snackbar = true;
-                this.snackbar_msg = err.response.data;
+                this.snackbar_msg = `Store load error: ${err.response.data.error}`;
                 this.loading = false;
                 return false;
             }
@@ -295,6 +313,11 @@ export default {
             }
 
             return true;
+        },
+
+        generateUUID() {
+            let newUUID = crypto.randomUUID();
+            this.editedStoreUUID = newUUID;
         },
 
         async createStore() {
@@ -324,7 +347,7 @@ export default {
             catch (err) {
                 console.log(`Push failed\n${err.response.data.message}...`)
                 this.snackbar = true;
-                this.snackbar_msg = err.response.data;
+                this.snackbar_msg = `Item push error: ${err.response.data.error}`;
                 this.loading = false;
                 return false;
             }
@@ -345,7 +368,7 @@ export default {
             catch (err) {
                 console.log(`Delete failed\n${err.response.data.message}...`)
                 this.snackbar = true;
-                this.snackbar_msg = err.response.data;
+                this.snackbar_msg = `Item delete error: ${err.response.data.error}`;
                 this.loading = false;
                 return false;
             }
