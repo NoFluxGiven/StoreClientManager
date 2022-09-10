@@ -27,6 +27,42 @@
                 <v-icon medium class="mr-2" @click="copyStoreUUID()" v-if="storeUUID!==''">
                     mdi-clipboard
                 </v-icon>
+                <v-dialog v-model="dialogBookmark" max-width="500px" v-if="storeUUID!==''">
+                    <template v-slot:activator="{ on, attrs }">
+                        <v-icon medium class="mr-2" v-on="on" v-bind="attrs">
+                            mdi-bookmark
+                        </v-icon>
+                    </template>
+                    <v-card>
+                        <v-card-title>
+                            <span class="text-h5">Bookmark this Store</span>
+                        </v-card-title>
+
+                        <v-card-text>
+                            <v-container>
+                                <v-row>
+                                    <v-col cols="12" sm="9" md="11">
+                                        <v-text-field v-model="bookmarkName" label="Name"
+                                            hint="A descriptive name for your Store.">
+                                        </v-text-field>
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-card-text>
+
+                        <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn color="blue darken-1" text @click="closeBookmark">
+                                Cancel
+                            </v-btn>
+                            <v-btn color="blue darken-1" text @click="saveBookmark">
+                                Save
+                            </v-btn>
+
+                        </v-card-actions>
+                    </v-card>
+
+                </v-dialog>
                 <v-divider class="mx-4" inset vertical></v-divider>
                 <v-dialog v-model="dialogStore" max-width="500px">
                     <template v-slot:activator="{ on, attrs }">
@@ -48,26 +84,29 @@
                                             hint="A UUIDv4 compliant Store UUID. Click the Generate button to generate one instead.">
                                         </v-text-field>
                                     </v-col>
-                                    <v-col>
-                                        <v-btn medium class="mr-2" @click="generateUUID()">
-                                            Generate
-                                        </v-btn>
-                                    </v-col>
                                 </v-row>
                             </v-container>
                         </v-card-text>
 
                         <v-card-actions>
                             <v-spacer></v-spacer>
-                            <v-btn color="blue darken-1" text @click="closeStore">
+                            <v-btn color="green darken-1" text @click="generateUUID()">
+                                Generate
+                            </v-btn>
+                            <v-btn color="red darken-1" text @click="closeStore">
                                 Cancel
                             </v-btn>
                             <v-btn color="blue darken-1" text @click="saveStore">
-                                Save
+                                {{storeUUID === "" ? "Load" : "Change"}}
                             </v-btn>
+
                         </v-card-actions>
                     </v-card>
                 </v-dialog>
+                <v-divider class="mx-4" inset vertical></v-divider>
+                <span class="black--text">{{bookmarkTitle}}</span>
+                <v-divider class="mx-4" inset vertical></v-divider>
+                <span class="grey--text">{{storeUUID}}</span>
                 <v-spacer></v-spacer>
 
                 <v-spacer></v-spacer>
@@ -92,7 +131,8 @@
                                     </v-col>
                                     <v-col cols="12" sm="9" md="8">
                                         <v-text-field v-model="editedItem.val" label="Value"
-                                            hint="The value itself, which will be stored as a string."></v-text-field>
+                                            hint="The value itself, which will be stored as a string.">
+                                        </v-text-field>
                                     </v-col>
                                 </v-row>
                             </v-container>
@@ -146,6 +186,10 @@ export default {
         dialog: false,
         dialogDelete: false,
         dialogStore: false,
+        dialogBookmark: false,
+        recent: "",
+        bookmarks: {},
+        bookmarkName: "",
         loading: false,
         snackbar: false,
         snackbar_msg: "",
@@ -183,7 +227,16 @@ export default {
             return this.editedIndex === -1 ? 'New Item' : 'Edit Item'
         },
         storeTitle() {
-            return this.storeUUID === "" ? "Load Store" : `Store: ${this.storeUUID}`
+            // let b = this.bookmarks;
+            // let name = b[this.storeUUID] || "< Untitled >";
+
+            return this.storeUUID === "" ? "Load Store" : `Change Store `
+        },
+        bookmarkTitle() {
+            let b = this.bookmarks;
+            let name = b[this.storeUUID] || "< Untitled >";
+
+            return name;
         }
     },
 
@@ -196,6 +249,9 @@ export default {
         },
         dialogStore(val) {
             val || this.closeStore()
+        },
+        dialogBookmark(val) {
+            val || this.closeBookmark()
         }
     },
 
@@ -207,6 +263,14 @@ export default {
         initialize() {
             this.items = [
             ]
+
+            this.bookmarks = { ...localStorage }
+
+            this.recent = this.bookmarks["@recent"];
+
+            if (this.recent) {
+                this.loadStore(this.recent)
+            }
         },
 
         editItem(item) {
@@ -252,6 +316,13 @@ export default {
             })
         },
 
+        closeBookmark() {
+            this.dialogBookmark = false
+            this.$nextTick(() => {
+                this.bookmarkName = "";
+            })
+        },
+
         async save() {
             this.close()
 
@@ -272,6 +343,12 @@ export default {
 
 
             this.closeStore();
+        },
+
+        saveBookmark() {
+            this.bookmarkStoreUUID(this.storeUUID, this.bookmarkName);
+
+            this.closeBookmark();
         },
 
         async loadStore(uuid) {
@@ -300,6 +377,7 @@ export default {
             console.log(`Load complete.`)
 
             this.storeUUID = uuid;
+            this.updateRecent();
 
             this.items = [];
 
@@ -380,6 +458,16 @@ export default {
             navigator.clipboard.writeText(this.storeUUID);
             this.snackbar = true;
             this.snackbar_msg = "UUID copied.";
+        },
+
+        bookmarkStoreUUID(uuid, name) {
+            localStorage.setItem(uuid, name)
+            this.bookmarks = { ...localStorage }
+        },
+
+        updateRecent() {
+            this.recent = this.storeUUID;
+            localStorage.setItem("@recent", this.recent);
         }
     },
 }
