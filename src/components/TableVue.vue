@@ -1,5 +1,5 @@
 <template>
-    <v-data-table :headers="headers" :items="items" sort-by="calories" class="elevation-1">
+    <v-data-table :headers="headers" :items="items" sort-by="key" class="elevation-1" :loading="loading">
         <template v-slot:top>
             <div class="text-center">
                 <v-snackbar v-model="snackbar" :timeout="timeout">
@@ -24,45 +24,6 @@
                 <v-icon medium class="mr-2" @click="loadStore(storeUUID)" v-if="storeUUID!==''">
                     mdi-refresh
                 </v-icon>
-                <v-icon medium class="mr-2" @click="copyStoreUUID()" v-if="storeUUID!==''">
-                    mdi-clipboard
-                </v-icon>
-                <v-dialog v-model="dialogBookmark" max-width="500px" v-if="storeUUID!==''">
-                    <template v-slot:activator="{ on, attrs }">
-                        <v-icon medium class="mr-2" v-on="on" v-bind="attrs">
-                            mdi-bookmark
-                        </v-icon>
-                    </template>
-                    <v-card>
-                        <v-card-title>
-                            <span class="text-h5">Bookmark this Store</span>
-                        </v-card-title>
-
-                        <v-card-text>
-                            <v-container>
-                                <v-row>
-                                    <v-col cols="12" sm="9" md="11">
-                                        <v-text-field v-model="bookmarkName" label="Name"
-                                            hint="A descriptive name for your Store.">
-                                        </v-text-field>
-                                    </v-col>
-                                </v-row>
-                            </v-container>
-                        </v-card-text>
-
-                        <v-card-actions>
-                            <v-spacer></v-spacer>
-                            <v-btn color="blue darken-1" text @click="closeBookmark">
-                                Cancel
-                            </v-btn>
-                            <v-btn color="blue darken-1" text @click="saveBookmark">
-                                Save
-                            </v-btn>
-
-                        </v-card-actions>
-                    </v-card>
-
-                </v-dialog>
                 <v-divider class="mx-4" inset vertical></v-divider>
                 <v-dialog v-model="dialogStore" max-width="500px">
                     <template v-slot:activator="{ on, attrs }">
@@ -80,9 +41,18 @@
                             <v-container>
                                 <v-row>
                                     <v-col cols="12" sm="9" md="11">
-                                        <v-text-field v-model="editedStoreUUID" label="Store UUID"
-                                            hint="A UUIDv4 compliant Store UUID. Click the Generate button to generate one instead.">
-                                        </v-text-field>
+                                        <!-- <v-select v-model="bookmarkSelect"
+                                            :hint="`${bookmarkSelect.val}, ${bookmarkSelect.key}`"
+                                            :items="bookmarksList" item-text="val" item-name="val" item-value="key"
+                                            label="Load Bookmark" @change="editedStoreUUID(key)" return-object
+                                            single-line :disabled="editedStoreUUID!==''">
+                                        </v-select> -->
+                                        <v-combobox v-model="editedStoreUUID" :items="bookmarksList" item-text="val"
+                                            item-name="val" item-value="key" outlined label="UUID" persistent-hint
+                                            hint="Paste or Generate a UUIDv4 compliant Store UUID, or load one from your Bookmarks."
+                                            :return-object="false">
+                                        </v-combobox>
+
                                     </v-col>
                                 </v-row>
                             </v-container>
@@ -104,11 +74,58 @@
                     </v-card>
                 </v-dialog>
                 <v-divider class="mx-4" inset vertical></v-divider>
-                <span class="black--text">{{bookmarkTitle}}</span>
-                <v-divider class="mx-4" inset vertical></v-divider>
-                <span class="grey--text">{{storeUUID}}</span>
-                <v-spacer></v-spacer>
+                <v-dialog v-model="dialogBookmark" max-width="500px" v-if="storeUUID!==''">
+                    <template v-slot:activator="{ on, attrs }">
+                        <v-btn small class="mr-1" v-on="on" text v-bind="attrs">
+                            <v-icon>{{bookmarkTitle != '' ? "mdi-bookmark" : "mdi-bookmark-plus"}}</v-icon>
+                            <v-icon small v-if="bookmarkTitle != ''">mdi-pencil</v-icon>
+                        </v-btn>
+                    </template>
+                    <v-card>
+                        <v-card-title>
+                            <span class="text-h5">Bookmark</span>
+                        </v-card-title>
 
+                        <v-card-text>
+                            <v-container>
+                                <v-row>
+                                    <v-col cols="12" sm="9" md="11">
+                                        <v-text-field v-model="bookmarkName"
+                                            :label="bookmarkTitle !== '' ? 'Rename' : 'Add Bookmark'"
+                                            :placeholder="bookmarkTitle"
+                                            hint="A descriptive name for the loaded Store.">
+                                        </v-text-field>
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-card-text>
+
+                        <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn color="blue darken-1" text @click="closeBookmark">
+                                Cancel
+                            </v-btn>
+                            <v-btn :color="bookmarkName !== '' ? 'green darken-1' : 'warning darken-1'" text
+                                @click="saveBookmark">
+                                {{bookmarkTitle !== '' ? "Rename Bookmark" : "Add Bookmark"}}
+                            </v-btn>
+
+                        </v-card-actions>
+                    </v-card>
+
+                </v-dialog>
+                <v-divider class="mx-4" inset vertical></v-divider>
+                <v-col>
+                    <v-row>
+                        <span class="black--text" v-if="bookmarkTitle!==''">{{bookmarkTitle}}</span>
+                    </v-row>
+                    <v-row>
+                        <span class="grey--text" @click="copyStoreUUID()">{{storeUUID}} </span>
+                    </v-row>
+                </v-col>
+                <!-- <v-icon medium class="mr-6" @click="copyStoreUUID()" v-if="storeUUID!==''"> -->
+                <!-- mdi-clipboard -->
+                <!-- </v-icon> -->
                 <v-spacer></v-spacer>
                 <v-dialog v-model="dialog" max-width="500px">
                     <template v-slot:activator="{ on, attrs }">
@@ -189,7 +206,9 @@ export default {
         dialogBookmark: false,
         recent: "",
         bookmarks: {},
+        bookmarksList: [],
         bookmarkName: "",
+        bookmarkSelect: {},
         loading: false,
         snackbar: false,
         snackbar_msg: "",
@@ -234,7 +253,7 @@ export default {
         },
         bookmarkTitle() {
             let b = this.bookmarks;
-            let name = b[this.storeUUID] || "< Untitled >";
+            let name = b[this.storeUUID] || "";
 
             return name;
         }
@@ -264,7 +283,7 @@ export default {
             this.items = [
             ]
 
-            this.bookmarks = { ...localStorage }
+            this.updateBookmarks();
 
             this.recent = this.bookmarks["@recent"];
 
@@ -346,7 +365,16 @@ export default {
         },
 
         saveBookmark() {
+
+            if (this.bookmarkName === '' && this.bookmarkSelect) {
+                this.loadStore(this.bookmarkSelect.key);
+                this.closeBookmark();
+                return true;
+            }
+
             this.bookmarkStoreUUID(this.storeUUID, this.bookmarkName);
+
+            this.updateBookmarks();
 
             this.closeBookmark();
         },
@@ -465,9 +493,32 @@ export default {
             this.bookmarks = { ...localStorage }
         },
 
+        updateBookmarks() {
+            this.bookmarks = { ...localStorage };
+
+            this.updateBookmarksList();
+        },
+
         updateRecent() {
             this.recent = this.storeUUID;
             localStorage.setItem("@recent", this.recent);
+        },
+
+        updateBookmarksList() {
+
+            let bookmarkList = [];
+
+            for (var [k, v] of Object.entries(this.bookmarks)) {
+                if (k === "@recent" || k === "") continue;
+                bookmarkList.push({
+                    key: k,
+                    val: v
+                })
+            }
+
+            console.log(bookmarkList);
+
+            this.bookmarksList = bookmarkList;
         }
     },
 }
